@@ -1,0 +1,58 @@
+name: Publish Docker Image
+
+on:
+  push:
+    branches:
+      - master
+      - develop
+      - release/*
+      - beta
+      - hotfix/*
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+          mask-aws-account-id: true
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+        with:
+          mask-password: true
+
+      - name: Build and Push Docker image
+        run: |
+          REPO_NAME=$(echo "${{ github.repository }}" | cut -d '/' -f 2)
+          IMAGE_TAG=${{ github.sha }}
+          REPOSITORY_URI=${{ secrets.DOCKER_REGISTRY }}
+
+          if [[ ${{ github.ref }} == 'refs/heads/master' || ${{ github.ref }} == 'refs/heads/master' ]]; then
+            DOCKER_TAG=latest
+          elif [[ ${{ github.ref }} == 'refs/heads/develop' ]]; then
+            DOCKER_TAG=dev
+          elif [[ ${{ github.ref }} =~ ^refs/heads/release/(.*)$ ]]; then
+            DOCKER_TAG=${BASH_REMATCH[1]}
+          elif [[ ${{ github.ref }} =~ ^refs/heads/hotfix/(.*)$ ]]; then
+            DOCKER_TAG=hotfix-${BASH_REMATCH[1]}
+          elif [[ ${{ github.ref }} == 'refs/heads/beta' ]]; then
+            DOCKER_TAG=beta
+          else
+            DOCKER_TAG=dev
+          fi
+
+          docker build -t $REPO_NAME:$IMAGE_TAG .
+          docker tag $REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$IMAGE_TAG
+          docker tag $REPO_NAME:$IMAGE_TAG $REPOSITORY_URI:$DOCKER_TAG
+          docker push $REPOSITORY_URI:$IMAGE_TAG
+          docker push $REPOSITORY_URI:$DOCKER_TAG
