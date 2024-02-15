@@ -1,8 +1,7 @@
 import Stripe from "stripe";
 
-const client = new Stripe(process.env.STRIPE_PUBLIC_KEY!, {
-  apiVersion: "2022-11-15",
-  typescript: true,
-});
+export function getStripeClient(key, apiVersion = "2022-11-15", typescript = true) {
+  return new Stripe(key, { apiVersion, typescript })
+}
 
-export { client };
+export { getStripeClient };
